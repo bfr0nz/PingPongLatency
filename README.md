@@ -24,14 +24,14 @@ Install the normal Tauri prerequisites:
 Then install dependencies and run the app:
 
 ```powershell
-npm install
-npm run tauri:dev
+pnpm install
+pnpm tauri:dev
 ```
 
 ## Build
 
 ```powershell
-npm run tauri:build
+pnpm tauri:build
 ```
 
 ## macOS later
@@ -40,5 +40,5 @@ The app is structured so the UI, SQLite model, and command API are platform-neut
 
 ```bash
 rustup target add aarch64-apple-darwin x86_64-apple-darwin
-npm run tauri:build -- --target universal-apple-darwin
+pnpm tauri:build -- --target universal-apple-darwin
 ```

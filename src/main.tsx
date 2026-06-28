@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { Activity, Clock, Globe2, Plus, Trash2, WifiOff } from "lucide-react";
 import {
   Area,
@@ -41,6 +42,10 @@ type HostSummary = {
   packet_loss_percent: number;
 };
 
+type PingEvent = {
+  result: PingResult;
+};
+
 type WindowOption = {
   label: string;
   minutes: number;
@@ -67,6 +72,7 @@ function App() {
   const [windowMinutes, setWindowMinutes] = useState(15);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pingVersion, setPingVersion] = useState(0);
 
   async function refreshHosts() {
     const nextHosts = await invoke<HostSummary[]>("list_hosts", { windowMinutes });
@@ -92,12 +98,32 @@ function App() {
   }, [selectedHostId, windowMinutes]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      refreshHosts().catch((err) => setError(String(err)));
-      refreshHistory().catch((err) => setError(String(err)));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [selectedHostId, windowMinutes]);
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+
+    listen<PingEvent>("ping_result", () => {
+      setPingVersion((version) => version + 1);
+    })
+      .then((nextUnlisten) => {
+        if (disposed) {
+          nextUnlisten();
+        } else {
+          unlisten = nextUnlisten;
+        }
+      })
+      .catch((err) => setError(String(err)));
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pingVersion === 0) return;
+    refreshHosts().catch((err) => setError(String(err)));
+    refreshHistory().catch((err) => setError(String(err)));
+  }, [pingVersion, selectedHostId, windowMinutes]);
 
   async function addHost(event: React.FormEvent) {
     event.preventDefault();
